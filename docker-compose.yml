@@ -2,30 +2,48 @@ version: "3.9"
 
 services:
 
-  web:
+  migration:
     build: .
-    container_name: logistics_backend
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4
+    container_name: logistics_migration
+    command: sh -c "python manage.py migrate --noinput"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - ./db.sqlite3:/app/db.sqlite3
+    env_file:
+      - .env
+    restart: "no"
+
+  web:
+    build: .
+    container_name: logistics_backend
+    entrypoint: ["/app/entrypoint.sh"]
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      - ./db.sqlite3:/app/db.sqlite3
     env_file:
       - .env
     expose:
       - "8000"
+    depends_on:
+      migration:
+        condition: service_completed_successfully
     restart: always
 
   bot:
     build: .
     container_name: logistics_bot
-    command: python manage.py runbot
+    command: sh -c "python manage.py runbot"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - ./db.sqlite3:/app/db.sqlite3
     env_file:
       - .env
     depends_on:
-      - web
+      migration:
+        condition: service_completed_successfully
     restart: always
 
   nginx:
