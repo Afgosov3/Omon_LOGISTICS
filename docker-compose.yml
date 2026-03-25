@@ -4,8 +4,28 @@ services:
     build: .
     container_name: logistics_backend
     command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    env_file:
+      - .env
     expose:
       - "8000"
+    restart: always
+
+  bot:
+    build: .
+    container_name: logistics_bot
+    command: python manage.py runbot
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    env_file:
+      - .env
+    depends_on:
+      - web
     restart: always
 
   nginx:
@@ -15,6 +35,13 @@ services:
       - "8080:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
     depends_on:
       - web
     restart: always
+
+volumes:
+  static_volume:
+  media_volume:
+
