@@ -27,6 +27,11 @@ class Driver(TimeStampedBaseModel):
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
+    # Location tracking
+    current_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    current_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    last_location_update = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         indexes = [
             models.Index(fields=["telegram_id"]),

@@ -25,6 +25,9 @@ class DriverSerializer(serializers.ModelSerializer):
             "card_last4",
             "created_at",
             "updated_at",
+            "current_lat",
+            "current_lng",
+            "last_location_update",
         ]
         read_only_fields = [
             "id",
