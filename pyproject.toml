@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "omon-logistics-backend"
+version = "0.1.0"
+description = "OMON Logistics CRM + Telegram Bot backend"
+authors = ["OMON Team <dev@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+django = "^5.0"
+djangorestframework = "^3.15"
+djangorestframework-simplejwt = "^5.3.1"
+drf-spectacular = "^0.27.0"
+psycopg2-binary = "^2.9.9"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-django = "^4.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

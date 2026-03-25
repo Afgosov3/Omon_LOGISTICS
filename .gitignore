@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.swp
+*.swo
+*.DS_Store
+
+# Virtualenv
+.venv/
+.env/
+*.env
+
+# Django
+/db.sqlite3
+/static/
+/media/
+/staticfiles/
+
+# Migrations cache
+**/migrations/__pycache__/
+
+# IDE
+.idea/
+.vscode/
+
+# Byte-compiled/temporary
+*.log
+
+# Docker
+*.pid
+
