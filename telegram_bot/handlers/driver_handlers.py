@@ -6,7 +6,8 @@ from telegram_bot.keyboards.keyboards import (
     get_driver_main_keyboard,
     get_order_list_keyboard,
     get_driver_order_actions_keyboard,
-    get_back_keyboard, get_customer_main_keyboard
+    get_back_keyboard,
+    get_customer_main_keyboard
 )
 from telegram_bot.states.states import DriverOrderState
 from orders.models import OrderStatus, ProofKind
