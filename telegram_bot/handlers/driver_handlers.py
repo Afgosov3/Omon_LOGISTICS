@@ -16,8 +16,12 @@ from orders.models import OrderStatus, ProofKind
 from django.core.files.base import ContentFile
 from django.conf import settings
 import io
+import re
 
 router = Router()
+
+STATUS_PICK_RE = re.compile(r"^status_pick_(\d+)_(.+)$")
+STATUS_MENU_RE = re.compile(r"^status_menu_(\d+)$")
 
 async def safe_edit_text(message, text, reply_markup=None):
     try:
@@ -74,7 +78,12 @@ async def show_driver_orders(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("order_detail_driver_"))
 async def show_order_detail(call: CallbackQuery):
-    order_id = int(call.data.split("_")[-1])
+    order_id_part = call.data.split("_")[-1]
+    if not order_id_part.isdigit():
+        await call.answer("Xato ma'lumot, ro'yxatdan qayta tanlang", show_alert=True)
+        await safe_edit_text(call.message, "Bosh menyu:", reply_markup=get_driver_main_keyboard())
+        return
+    order_id = int(order_id_part)
     driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
     if not driver:
         await call.answer("Haydovchi topilmadi!", show_alert=True)
@@ -102,7 +111,11 @@ async def show_order_detail(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("status_menu_"))
 async def show_status_menu(call: CallbackQuery):
-    order_id = int(call.data.split("_")[-1])
+    match = STATUS_MENU_RE.match(call.data)
+    if not match:
+        await call.answer("Xato ma'lumot", show_alert=True)
+        return
+    order_id = int(match.group(1))
     driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
     if not driver:
         await call.answer("Haydovchi topilmadi!", show_alert=True)
@@ -117,13 +130,13 @@ async def show_status_menu(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("status_pick_"))
 async def pick_status(call: CallbackQuery, state: FSMContext):
-    parts = call.data.split("_")
-    if len(parts) < 4:
+    match = STATUS_PICK_RE.match(call.data)
+    if not match:
         await call.answer("Xato ma'lumot", show_alert=True)
         return
 
-    order_id = int(parts[2])
-    status_code = "_".join(parts[3:])
+    order_id = int(match.group(1))
+    status_code = match.group(2)
 
     driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
     order = await BotService.get_order_for_driver(order_id, driver) if driver else None
@@ -265,7 +278,5 @@ async def process_location(message: Message):
 async def back_home(call: CallbackQuery, state: FSMContext):
     await state.clear()
     driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
-    if driver:
-        await call.message.edit_text("Bosh menyu:", reply_markup=get_driver_main_keyboard())
-    else:
-        await call.message.edit_text("Bosh menyu:", reply_markup=get_customer_main_keyboard())
+    kb = get_driver_main_keyboard() if driver else get_customer_main_keyboard()
+    await safe_edit_text(call.message, "Bosh menyu:", reply_markup=kb)

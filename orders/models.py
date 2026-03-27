@@ -14,19 +14,19 @@ def generate_order_id() -> str:
 
 
 class OrderStatus(models.TextChoices):
-    NEW = "new", "New"
-    CLIENT_CONFIRMED = "client_confirmed", "Client confirmed"
-    DRIVER_SEARCH = "driver_search", "Driver search"
-    DRIVER_ASSIGNED = "driver_assigned", "Driver assigned"
-    ON_THE_WAY_TO_PICKUP = "on_the_way_to_pickup", "On the way to pickup"
-    AT_PICKUP_LOCATION = "at_pickup_location", "At pickup location"
-    LOADED = "loaded", "Loaded"
-    ON_THE_WAY_WITH_CARGO = "on_the_way_with_cargo", "On the way with cargo"
-    AT_DROPOFF_LOCATION = "at_dropoff_location", "At dropoff location"
-    UNLOADING_REQUESTED = "unloading_requested", "Unloading requested"
-    UNLOADING_CONFIRMED = "unloading_confirmed", "Unloading confirmed"
-    COMPLETED = "completed", "Completed"
-    CANCELLED = "cancelled", "Cancelled"
+    NEW = "new", "Yangi"
+    CLIENT_CONFIRMED = "client_confirmed", "Mijoz tasdiqladi"
+    DRIVER_SEARCH = "driver_search", "Haydovchi qidirilmoqda"
+    DRIVER_ASSIGNED = "driver_assigned", "Haydovchi biriktirildi"
+    ON_THE_WAY_TO_PICKUP = "on_the_way_to_pickup", "Yuk olishga yo'lda"
+    AT_PICKUP_LOCATION = "at_pickup_location", "Yuk olish joyida"
+    LOADED = "loaded", "Yuk ortildi"
+    ON_THE_WAY_WITH_CARGO = "on_the_way_with_cargo", "Yuk bilan yo'lda"
+    AT_DROPOFF_LOCATION = "at_dropoff_location", "Tushirish joyida"
+    UNLOADING_REQUESTED = "unloading_requested", "Tushirish boshlandi"
+    UNLOADING_CONFIRMED = "unloading_confirmed", "Tushirish tasdiqlandi"
+    COMPLETED = "completed", "Yakunlangan"
+    CANCELLED = "cancelled", "Bekor qilingan"
 
 
 class Order(TimeStampedBaseModel):
