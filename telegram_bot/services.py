@@ -85,9 +85,31 @@ class BotService:
 
     @staticmethod
     @sync_to_async
+    def get_order_for_driver(order_id, driver):
+        try:
+            return Order.objects.select_related(
+                'assigned_driver', 'client', 'assigned_vehicle'
+            ).prefetch_related('points').get(id=order_id, assigned_driver=driver)
+        except Order.DoesNotExist:
+            return None
+
+    @staticmethod
+    @sync_to_async
+    def get_order_for_customer(order_id, client):
+        try:
+            return Order.objects.select_related(
+                'assigned_driver', 'client', 'assigned_vehicle'
+            ).prefetch_related('points').get(id=order_id, client=client)
+        except Order.DoesNotExist:
+            return None
+
+    @staticmethod
+    @sync_to_async
     def update_order_status(order_id, new_status, driver=None, proof_file=None, proof_type=None):
         try:
-            order = Order.objects.get(id=order_id)
+            order = Order.objects.select_related('assigned_driver').get(id=order_id)
+            if driver and order.assigned_driver_id != driver.id:
+                return None
             return OrderService.update_status(
                 order=order,
                 new_status=new_status,
@@ -104,9 +126,9 @@ class BotService:
         try:
             driver = await Driver.objects.aget(id=driver_id)
             driver.current_lat = lat
-            driver.current_long = lon
-            driver.last_location_at = timezone.now()
-            await driver.asave()
+            driver.current_lng = lon
+            driver.last_location_update = timezone.now()
+            await driver.asave(update_fields=["current_lat", "current_lng", "last_location_update"])
         except Driver.DoesNotExist:
             pass
 
@@ -119,4 +141,3 @@ class BotService:
     @sync_to_async
     def get_dropoff_point(order):
         return order.points.filter(point_type=OrderPointType.DROPOFF).last()
-

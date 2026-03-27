@@ -1,5 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
+from aiogram.exceptions import TelegramBadRequest
 from telegram_bot.services import BotService
 from telegram_bot.keyboards.keyboards import (
     get_customer_main_keyboard,
@@ -8,6 +9,14 @@ from telegram_bot.keyboards.keyboards import (
 )
 
 router = Router()
+
+async def safe_edit_text(message, text, reply_markup=None):
+    try:
+        await message.edit_text(text, reply_markup=reply_markup)
+    except TelegramBadRequest as exc:
+        if "message is not modified" in str(exc):
+            return
+        raise
 
 @router.callback_query(F.data == "customer_orders")
 async def show_customer_orders(call: CallbackQuery):
@@ -18,14 +27,20 @@ async def show_customer_orders(call: CallbackQuery):
 
     orders = await BotService.get_customer_orders(client)
     if not orders:
-        await call.message.edit_text("Sizda faol buyurtmalar yo'q.", reply_markup=get_customer_main_keyboard())
+        await safe_edit_text(call.message, "Sizda faol buyurtmalar yo'q.", reply_markup=get_customer_main_keyboard())
     else:
-        await call.message.edit_text("Buyurtmangizni tanlang:", reply_markup=get_order_list_keyboard(orders, "customer"))
+        await safe_edit_text(call.message, "Buyurtmangizni tanlang:", reply_markup=get_order_list_keyboard(orders, "customer"))
 
 @router.callback_query(F.data.startswith("order_detail_customer_"))
 async def show_order_detail_customer(call: CallbackQuery):
     order_id = int(call.data.split("_")[-1])
-    order = await BotService.get_order_by_id(order_id)
+    client = await BotService.get_customer_by_telegram_id(call.from_user.id)
+
+    if not client:
+        await call.answer("Mijoz topilmadi!", show_alert=True)
+        return
+
+    order = await BotService.get_order_for_customer(order_id, client)
 
     if not order:
         await call.answer("Buyurtma topilmadi!", show_alert=True)
@@ -36,43 +51,42 @@ async def show_order_detail_customer(call: CallbackQuery):
     pickup_addr = pickup.address if pickup else "Noma'lum"
     dropoff_addr = dropoff.address if dropoff else "Noma'lum"
 
-    driver_name = "Biriktirilmagan"
-    vehicle_info = ""
-
-    if order.assigned_driver:
-        driver_name = order.assigned_driver.full_name
-        if order.assigned_vehicle:
-             vehicle_info = f"({order.assigned_vehicle.plate_number})"
-
     price = order.client_price if order.client_price else 0
 
     text = f"📦 Buyurtma #{order.public_id[-6:]}\n\n" \
            f"📍 Olish: {pickup_addr}\n" \
            f"🏁 Tushirish: {dropoff_addr}\n" \
            f"💰 Narx: {price:,.0f} so'm\n" \
-           f"🚚 Haydovchi: {driver_name} {vehicle_info}\n" \
            f"🔄 Status: {order.get_current_status_display()}\n"
 
-    await call.message.edit_text(text, reply_markup=get_customer_order_actions_keyboard(order.id))
+    await safe_edit_text(call.message, text, reply_markup=get_customer_order_actions_keyboard(order.id))
 
 @router.callback_query(F.data.startswith("track_order_"))
 async def track_order(call: CallbackQuery):
     order_id = int(call.data.split("_")[-1])
-    order = await BotService.get_order_by_id(order_id)
+    client = await BotService.get_customer_by_telegram_id(call.from_user.id)
+    order = await BotService.get_order_for_customer(order_id, client) if client else None
 
-    if not order or not order.assigned_driver:
-        await call.answer("Haydovchi topilmadi yoki buyurtma yo'q.", show_alert=True)
+    if not order:
+        await call.answer("Buyurtma topilmadi", show_alert=True)
         return
 
-    # Assuming we added Lat/Long to Driver model
-    lat = order.assigned_driver.current_lat
-    lon = order.assigned_driver.current_long
-    last_seen = order.assigned_driver.last_location_at
+    driver = order.assigned_driver
+    if not driver:
+        await call.answer("Haydovchi biriktirilmagan", show_alert=True)
+        return
 
-    if lat and lon:
-         await call.message.answer_location(latitude=float(lat), longitude=float(lon))
-         time_str = last_seen.strftime('%H:%M') if last_seen else ""
-         await call.message.answer(f"Haydovchi so'nggi lokatsiyasi ({time_str}): https://maps.google.com/?q={lat},{lon}")
-    else:
-         await call.answer("Haydovchi lokatsiyasi mavjud emas.", show_alert=True)
+    lat = driver.current_lat
+    lng = driver.current_lng
+    updated_at = driver.last_location_update
 
+    if lat is None or lng is None:
+        if driver.telegram_id:
+            await BotService.send_message(driver.telegram_id, "Mijoz lokatsiya so'radi. Iltimos, lokatsiyani yuboring.")
+        await call.answer("Haydovchidan lokatsiya so'raldi.", show_alert=True)
+        return
+
+    await call.message.answer_location(latitude=float(lat), longitude=float(lng))
+    if updated_at:
+        await call.message.answer(f"Oxirgi yangilanish: {updated_at.strftime('%Y-%m-%d %H:%M')}")
+    await call.answer()

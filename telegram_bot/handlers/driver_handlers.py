@@ -1,6 +1,7 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
+from aiogram.exceptions import TelegramBadRequest
 from telegram_bot.services import BotService
 from telegram_bot.keyboards.keyboards import (
     get_driver_main_keyboard,
@@ -17,6 +18,14 @@ import io
 
 router = Router()
 
+async def safe_edit_text(message, text, reply_markup=None):
+    try:
+        await message.edit_text(text, reply_markup=reply_markup)
+    except TelegramBadRequest as exc:
+        if "message is not modified" in str(exc):
+            return
+        raise
+
 @router.callback_query(F.data == "driver_orders")
 async def show_driver_orders(call: CallbackQuery):
     driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
@@ -26,14 +35,19 @@ async def show_driver_orders(call: CallbackQuery):
 
     orders = await BotService.get_driver_orders(driver)
     if not orders:
-        await call.message.edit_text("Sizda faol buyurtmalar yo'q.", reply_markup=get_driver_main_keyboard())
+        await safe_edit_text(call.message, "Sizda faol buyurtmalar yo'q.", reply_markup=get_driver_main_keyboard())
     else:
-        await call.message.edit_text("Buyurtmangizni tanlang:", reply_markup=get_order_list_keyboard(orders, "driver"))
+        await safe_edit_text(call.message, "Buyurtmangizni tanlang:", reply_markup=get_order_list_keyboard(orders, "driver"))
 
 @router.callback_query(F.data.startswith("order_detail_driver_"))
 async def show_order_detail(call: CallbackQuery):
     order_id = int(call.data.split("_")[-1])
-    order = await BotService.get_order_by_id(order_id)
+    driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
+    if not driver:
+        await call.answer("Haydovchi topilmadi!", show_alert=True)
+        return
+
+    order = await BotService.get_order_for_driver(order_id, driver)
 
     if not order:
         await call.answer("Buyurtma topilmadi!", show_alert=True)
@@ -44,19 +58,13 @@ async def show_order_detail(call: CallbackQuery):
     pickup_addr = pickup.address if pickup else "Noma'lum"
     dropoff_addr = dropoff.address if dropoff else "Noma'lum"
 
-    client_name = order.client.full_name if order.client else "Noma'lum"
-    client_phone = order.client.phone if order.client else ""
-
     text = f"📦 Buyurtma #{order.public_id[-6:]}\n\n" \
            f"📍 Olish: {pickup_addr}\n" \
            f"🏁 Tushirish: {dropoff_addr}\n" \
            f"💰 Narx: {order.driver_price:,.0f} so'm\n" \
-           f"👤 Mijoz: {client_name}\n" \
-           f"📞 Tel: {client_phone}\n" \
            f"📅 Vaqt: {order.created_at.strftime('%Y-%m-%d %H:%M')}\n" \
            f"🔄 Status: {order.get_current_status_display()}\n"
 
-    # Determine status flow logic here or in keyboard generator
     await call.message.edit_text(text, reply_markup=get_driver_order_actions_keyboard(order.id, order.current_status))
 
 @router.callback_query(F.data.startswith("status_"))
@@ -65,7 +73,6 @@ async def update_status_direct(call: CallbackQuery):
     parts = call.data.split("_")
     order_id = int(parts[1])
 
-    # Map button codes to model statuses
     status_map = {
         "on_way_to_pickup": OrderStatus.ON_THE_WAY_TO_PICKUP,
         "at_pickup_location": OrderStatus.AT_PICKUP_LOCATION,
@@ -76,15 +83,23 @@ async def update_status_direct(call: CallbackQuery):
     action = "_".join(parts[2:])
     new_status = status_map.get(action)
 
+    driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
+    if not driver:
+        await call.answer("Haydovchi topilmadi", show_alert=True)
+        return
+
+    order = await BotService.get_order_for_driver(order_id, driver)
+    if not order:
+        await call.answer("Buyurtma topilmadi", show_alert=True)
+        return
+
     if new_status:
-        driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
         order = await BotService.update_order_status(order_id, new_status, driver=driver)
         if order:
             await call.answer(f"Status yangilandi: {new_status}")
-            # Refresh view
             await show_order_detail(call)
         else:
-             await call.answer("Xatolik yuz berdi", show_alert=True)
+            await call.answer("Xatolik yuz berdi", show_alert=True)
     else:
         await call.answer("Status xatosi", show_alert=True)
 
@@ -120,6 +135,11 @@ async def process_proof(message: Message, state: FSMContext):
     target_status = data.get("target_status")
 
     driver = await BotService.get_driver_by_telegram_id(message.from_user.id)
+    order = await BotService.get_order_for_driver(order_id, driver) if driver else None
+    if not order:
+        await message.answer("Buyurtma topilmadi yoki sizga tegishli emas.")
+        await state.clear()
+        return
 
     file_id = None
     proof_kind = None
@@ -183,4 +203,3 @@ async def back_home(call: CallbackQuery, state: FSMContext):
         await call.message.edit_text("Bosh menyu:", reply_markup=get_driver_main_keyboard())
     else:
         await call.message.edit_text("Bosh menyu:", reply_markup=get_customer_main_keyboard())
-
