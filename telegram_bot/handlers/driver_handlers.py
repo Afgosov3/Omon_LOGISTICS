@@ -45,6 +45,10 @@ ALLOWED_STATUS_BY_CURRENT = {
     OrderStatus.ON_THE_WAY_WITH_CARGO: ["at_dropoff_location"],
     OrderStatus.AT_DROPOFF_LOCATION: ["unloading_requested"],
     OrderStatus.UNLOADING_REQUESTED: ["unloading_confirmed"],
+    # allow driver to start even if order is still early-stage
+    OrderStatus.NEW: ["on_way_to_pickup"],
+    OrderStatus.DRIVER_SEARCH: ["on_way_to_pickup"],
+    OrderStatus.CLIENT_CONFIRMED: ["on_way_to_pickup"],
 }
 
 LOCATION_PROMPT_STATUSES = {
