@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 from telegram_bot.services import BotService
@@ -8,7 +8,8 @@ from telegram_bot.keyboards.keyboards import (
     get_order_list_keyboard,
     get_driver_order_actions_keyboard,
     get_back_keyboard,
-    get_customer_main_keyboard
+    get_customer_main_keyboard,
+    get_driver_status_change_keyboard,
 )
 from telegram_bot.states.states import DriverOrderState
 from orders.models import OrderStatus, ProofKind
@@ -25,6 +26,32 @@ async def safe_edit_text(message, text, reply_markup=None):
         if "message is not modified" in str(exc):
             return
         raise
+
+STATUS_OPTION_MAP = {
+    "on_way_to_pickup": (OrderStatus.ON_THE_WAY_TO_PICKUP, False),
+    "at_pickup_location": (OrderStatus.AT_PICKUP_LOCATION, False),
+    "loaded": (OrderStatus.LOADED, True),
+    "on_the_way_with_cargo": (OrderStatus.ON_THE_WAY_WITH_CARGO, False),
+    "at_dropoff_location": (OrderStatus.AT_DROPOFF_LOCATION, False),
+    "unloading_requested": (OrderStatus.UNLOADING_REQUESTED, True),
+    "unloading_confirmed": (OrderStatus.UNLOADING_CONFIRMED, True),
+}
+
+ALLOWED_STATUS_BY_CURRENT = {
+    OrderStatus.DRIVER_ASSIGNED: ["on_way_to_pickup"],
+    OrderStatus.ON_THE_WAY_TO_PICKUP: ["at_pickup_location"],
+    OrderStatus.AT_PICKUP_LOCATION: ["loaded"],
+    OrderStatus.LOADED: ["on_the_way_with_cargo"],
+    OrderStatus.ON_THE_WAY_WITH_CARGO: ["at_dropoff_location"],
+    OrderStatus.AT_DROPOFF_LOCATION: ["unloading_requested"],
+    OrderStatus.UNLOADING_REQUESTED: ["unloading_confirmed"],
+}
+
+LOCATION_PROMPT_STATUSES = {
+    OrderStatus.ON_THE_WAY_TO_PICKUP,
+    OrderStatus.ON_THE_WAY_WITH_CARGO,
+    OrderStatus.AT_DROPOFF_LOCATION,
+}
 
 @router.callback_query(F.data == "driver_orders")
 async def show_driver_orders(call: CallbackQuery):
@@ -67,41 +94,69 @@ async def show_order_detail(call: CallbackQuery):
 
     await safe_edit_text(call.message, text, reply_markup=get_driver_order_actions_keyboard(order.id, order.current_status))
 
-@router.callback_query(F.data.startswith("status_"))
-async def update_status_direct(call: CallbackQuery):
-    # Format: status_{order_id}_{new_status_code}
-    parts = call.data.split("_")
-    order_id = int(parts[1])
-
-    status_map = {
-        "on_way_to_pickup": OrderStatus.ON_THE_WAY_TO_PICKUP,
-        "at_pickup_location": OrderStatus.AT_PICKUP_LOCATION,
-        "on_the_way_with_cargo": OrderStatus.ON_THE_WAY_WITH_CARGO,
-        "at_dropoff_location": OrderStatus.AT_DROPOFF_LOCATION,
-    }
-
-    action = "_".join(parts[2:])
-    new_status = status_map.get(action)
-
+@router.callback_query(F.data.startswith("status_menu_"))
+async def show_status_menu(call: CallbackQuery):
+    order_id = int(call.data.split("_")[-1])
     driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
     if not driver:
-        await call.answer("Haydovchi topilmadi", show_alert=True)
+        await call.answer("Haydovchi topilmadi!", show_alert=True)
         return
 
     order = await BotService.get_order_for_driver(order_id, driver)
     if not order:
-        await call.answer("Buyurtma topilmadi", show_alert=True)
+        await call.answer("Buyurtma topilmadi!", show_alert=True)
         return
 
-    if new_status:
-        order = await BotService.update_order_status(order_id, new_status, driver=driver)
-        if order:
-            await call.answer(f"Status yangilandi: {new_status}")
-            await show_order_detail(call)
-        else:
-            await call.answer("Xatolik yuz berdi", show_alert=True)
+    await safe_edit_text(call.message, "Yangi statusni tanlang:", reply_markup=get_driver_status_change_keyboard(order.id, order.current_status))
+
+@router.callback_query(F.data.startswith("status_pick_"))
+async def pick_status(call: CallbackQuery, state: FSMContext):
+    parts = call.data.split("_")
+    if len(parts) < 4:
+        await call.answer("Xato ma'lumot", show_alert=True)
+        return
+
+    order_id = int(parts[2])
+    status_code = "_".join(parts[3:])
+
+    driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
+    order = await BotService.get_order_for_driver(order_id, driver) if driver else None
+    if not order:
+        await call.answer("Buyurtma topilmadi!", show_alert=True)
+        return
+
+    if status_code not in ALLOWED_STATUS_BY_CURRENT.get(order.current_status, []):
+        await call.answer("Bu statusga o'tish mumkin emas", show_alert=True)
+        return
+
+    target_status, requires_video = STATUS_OPTION_MAP.get(status_code, (None, False))
+    if not target_status:
+        await call.answer("Status topilmadi", show_alert=True)
+        return
+
+    if requires_video:
+        await state.update_data(order_id=order_id, target_status=target_status.name)
+        await state.set_state(DriverOrderState.waiting_for_proof)
+        await call.message.answer("📹 Iltimos, statusni tasdiqlash uchun VIDEO yuboring (📎 -> Video).", reply_markup=get_back_keyboard())
+        await call.answer()
+        return
+
+    updated_order = await BotService.update_order_status(order_id, target_status, driver=driver)
+    if updated_order:
+        await call.answer("Status yangilandi")
+        await show_order_detail(call)
+        if target_status in LOCATION_PROMPT_STATUSES:
+            await call.message.answer(
+                "📍 Lokatsiyani yuboring, mijoz ko'rsin:",
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text="📍 Lokatsiya yuborish", callback_data=f"send_loc_{order_id}")],
+                        [InlineKeyboardButton(text="🔙 Orqaga", callback_data=f"order_detail_driver_{order_id}")],
+                    ]
+                ),
+            )
     else:
-        await call.answer("Status xatosi", show_alert=True)
+        await call.answer("Statusni yangilab bo'lmadi", show_alert=True)
 
 @router.callback_query(F.data.startswith("proof_request_"))
 async def request_proof(call: CallbackQuery, state: FSMContext):
@@ -122,17 +177,17 @@ async def request_proof(call: CallbackQuery, state: FSMContext):
          await call.answer("Noto'g'ri status!", show_alert=True)
          return
 
-    await state.update_data(order_id=order_id, target_status=target_status)
+    await state.update_data(order_id=order_id, target_status=target_status.name)
     await state.set_state(DriverOrderState.waiting_for_proof)
 
-    await call.message.answer("📸 Iltimos, rasm yoki video yuklang (isbot sifatida):", reply_markup=get_back_keyboard())
+    await call.message.answer("📹 Iltimos, statusni tasdiqlash uchun VIDEO yuboring (📎 -> Video).", reply_markup=get_back_keyboard())
     await call.answer()
 
 @router.message(DriverOrderState.waiting_for_proof, F.photo | F.video | F.document)
 async def process_proof(message: Message, state: FSMContext):
     data = await state.get_data()
     order_id = data.get("order_id")
-    target_status = data.get("target_status")
+    target_status_name = data.get("target_status")
 
     driver = await BotService.get_driver_by_telegram_id(message.from_user.id)
     order = await BotService.get_order_for_driver(order_id, driver) if driver else None
@@ -141,42 +196,38 @@ async def process_proof(message: Message, state: FSMContext):
         await state.clear()
         return
 
-    file_id = None
-    proof_kind = None
-    file_name = f"proof_{order_id}_{target_status}"
+    if not target_status_name:
+        await message.answer("Status aniqlanmadi, qayta urinib ko'ring.")
+        await state.clear()
+        return
 
-    if message.photo:
-        file_id = message.photo[-1].file_id # Best quality
-        proof_kind = ProofKind.IMAGE
-        file_name += ".jpg"
-    elif message.video:
-        file_id = message.video.file_id
-        proof_kind = ProofKind.VIDEO
-        file_name += ".mp4"
-    elif message.document:
-        file_id = message.document.file_id
-        proof_kind = ProofKind.DOCUMENT
-        file_name += f"_{message.document.file_name}"
+    target_status = OrderStatus[target_status_name]
 
-    if file_id:
-        file_info = await message.bot.get_file(file_id)
-        # Download file
-        file_io = io.BytesIO()
-        await message.bot.download_file(file_info.file_path, destination=file_io)
+    if not message.video:
+        await message.answer("Faqat video yuboring (📎 -> Video).")
+        return
 
-        django_file = ContentFile(file_io.getvalue(), name=file_name)
+    file_id = message.video.file_id
+    proof_kind = ProofKind.VIDEO
+    file_name = f"proof_{order_id}_{target_status.name.lower()}.mp4"
 
-        await BotService.update_order_status(
-            order_id,
-            target_status,
-            driver=driver,
-            proof_file=django_file,
-            proof_type=proof_kind
-        )
+    file_info = await message.bot.get_file(file_id)
+    file_io = io.BytesIO()
+    await message.bot.download_file(file_info.file_path, destination=file_io)
+    django_file = ContentFile(file_io.getvalue(), name=file_name)
 
-        await message.answer(f"✅ Isbot qabul qilindi. Buyurtma statusi yangilandi.", reply_markup=get_driver_main_keyboard())
+    updated_order = await BotService.update_order_status(
+        order_id,
+        target_status,
+        driver=driver,
+        proof_file=django_file,
+        proof_type=proof_kind
+    )
+
+    if updated_order:
+        await message.answer("✅ Video qabul qilindi. Status yangilandi.", reply_markup=get_driver_main_keyboard())
     else:
-        await message.answer("Fayl yuklashda xatolik!")
+        await message.answer("Statusni yangilashda xatolik yuz berdi.")
 
     await state.clear()
 

@@ -43,7 +43,7 @@ def get_order_list_keyboard(orders, role="driver"):
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def get_driver_order_actions_keyboard(order_id, current_status):
-    buttons = []
+    buttons = [[InlineKeyboardButton(text="🔄 Statusni o'zgartirish", callback_data=f"status_menu_{order_id}")]]
 
     # Status mapping:
     # DRIVER_ASSIGNED -> ON_THE_WAY_TO_PICKUP
@@ -73,6 +73,37 @@ def get_driver_order_actions_keyboard(order_id, current_status):
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="driver_orders")])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_driver_status_change_keyboard(order_id, current_status):
+    status_options = {
+        "on_way_to_pickup": (OrderStatus.ON_THE_WAY_TO_PICKUP, "🚚 Yo'lga chiqdim (yuk olishga)", False),
+        "at_pickup_location": (OrderStatus.AT_PICKUP_LOCATION, "📍 Yetib keldim (yuk olishga)", False),
+        "loaded": (OrderStatus.LOADED, "📦 Yuklandi (video)", True),
+        "on_the_way_with_cargo": (OrderStatus.ON_THE_WAY_WITH_CARGO, "🚚 Yo'lga chiqdim (yuk bilan)", False),
+        "at_dropoff_location": (OrderStatus.AT_DROPOFF_LOCATION, "📍 Yetib keldim (tushirishga)", False),
+        "unloading_requested": (OrderStatus.UNLOADING_REQUESTED, "📦 Tushirishni boshladim (video)", True),
+        "unloading_confirmed": (OrderStatus.UNLOADING_CONFIRMED, "✅ Tushirish tugadi (video)", True),
+    }
+
+    allowed_by_status = {
+        OrderStatus.DRIVER_ASSIGNED: ["on_way_to_pickup"],
+        OrderStatus.ON_THE_WAY_TO_PICKUP: ["at_pickup_location"],
+        OrderStatus.AT_PICKUP_LOCATION: ["loaded"],
+        OrderStatus.LOADED: ["on_the_way_with_cargo"],
+        OrderStatus.ON_THE_WAY_WITH_CARGO: ["at_dropoff_location"],
+        OrderStatus.AT_DROPOFF_LOCATION: ["unloading_requested"],
+        OrderStatus.UNLOADING_REQUESTED: ["unloading_confirmed"],
+    }
+
+    buttons = []
+    for code in allowed_by_status.get(current_status, []):
+        _, label, requires_video = status_options[code]
+        buttons.append([InlineKeyboardButton(text=label, callback_data=f"status_pick_{order_id}_{code}")])
+
+    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data=f"order_detail_driver_{order_id}")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 def get_customer_order_actions_keyboard(order_id):
     return InlineKeyboardMarkup(
