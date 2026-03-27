@@ -65,7 +65,7 @@ async def show_order_detail(call: CallbackQuery):
            f"📅 Vaqt: {order.created_at.strftime('%Y-%m-%d %H:%M')}\n" \
            f"🔄 Status: {order.get_current_status_display()}\n"
 
-    await call.message.edit_text(text, reply_markup=get_driver_order_actions_keyboard(order.id, order.current_status))
+    await safe_edit_text(call.message, text, reply_markup=get_driver_order_actions_keyboard(order.id, order.current_status))
 
 @router.callback_query(F.data.startswith("status_"))
 async def update_status_direct(call: CallbackQuery):
@@ -113,8 +113,8 @@ async def request_proof(call: CallbackQuery, state: FSMContext):
     # Map target strings to Enum
     status_map = {
         "loaded": OrderStatus.LOADED,
+        "unloading_requested": OrderStatus.UNLOADING_REQUESTED,
         "unloading_confirmed": OrderStatus.UNLOADING_CONFIRMED,
-        "completed": OrderStatus.COMPLETED
     }
     target_status = status_map.get(target_status_code)
 

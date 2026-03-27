@@ -10,14 +10,14 @@ import os
 
 class BotService:
     @staticmethod
-    async def send_message(telegram_id, text):
+    async def send_message(telegram_id, text, reply_markup=None):
         token = os.getenv("BOT_TOKEN")
         if not token or not telegram_id:
             return
 
         try:
             bot = Bot(token=token)
-            await bot.send_message(chat_id=telegram_id, text=text)
+            await bot.send_message(chat_id=telegram_id, text=text, reply_markup=reply_markup)
             await bot.session.close()
         except Exception as e:
             print(f"Failed to send message to {telegram_id}: {e}")

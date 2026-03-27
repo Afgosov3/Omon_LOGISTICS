@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 from telegram_bot.services import BotService
 from telegram_bot.keyboards.keyboards import (
@@ -82,8 +82,17 @@ async def track_order(call: CallbackQuery):
 
     if lat is None or lng is None:
         if driver.telegram_id:
-            await BotService.send_message(driver.telegram_id, "Mijoz lokatsiya so'radi. Iltimos, lokatsiyani yuboring.")
-        await call.answer("Haydovchidan lokatsiya so'raldi.", show_alert=True)
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📍 Lokatsiyani yuborish", callback_data=f"send_loc_{order.id}")]
+            ])
+            await BotService.send_message(
+                driver.telegram_id,
+                "Mijoz lokatsiya so'radi. Iltimos, lokatsiyani yuboring.",
+                reply_markup=kb,
+            )
+            await call.answer("Haydovchidan lokatsiya so'raldi.", show_alert=True)
+        else:
+            await call.answer("Haydovchi Telegram bilan bog'lanmagan.", show_alert=True)
         return
 
     await call.message.answer_location(latitude=float(lat), longitude=float(lng))

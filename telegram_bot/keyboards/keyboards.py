@@ -64,9 +64,10 @@ def get_driver_order_actions_keyboard(order_id, current_status):
     elif current_status == OrderStatus.ON_THE_WAY_WITH_CARGO:
         buttons.append([InlineKeyboardButton(text="📍 Yetib keldim (Tushirishga)", callback_data=f"status_{order_id}_at_dropoff_location")])
     elif current_status == OrderStatus.AT_DROPOFF_LOCATION:
-        buttons.append([InlineKeyboardButton(text="✅ Yakunlash (Proof)", callback_data=f"proof_request_{order_id}_unloading_confirmed")])
-    # For UNLOADING_CONFIRMED -> COMPLETED, usually dispatcher does it, but driver can request completion or similar.
-    # Currently no action for driver here.
+        buttons.append([InlineKeyboardButton(text="📦 Tushirishni boshladim (Proof)", callback_data=f"proof_request_{order_id}_unloading_requested")])
+    elif current_status == OrderStatus.UNLOADING_REQUESTED:
+        buttons.append([InlineKeyboardButton(text="✅ Tushirish tugadi (Proof)", callback_data=f"proof_request_{order_id}_unloading_confirmed")])
+    # For UNLOADING_CONFIRMED -> COMPLETED, dispatcher closes.
 
     buttons.append([InlineKeyboardButton(text="📍 Lokatsiya yuborish", callback_data=f"send_loc_{order_id}")])
     buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="driver_orders")])
