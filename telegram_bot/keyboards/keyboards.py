@@ -43,34 +43,11 @@ def get_order_list_keyboard(orders, role="driver"):
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def get_driver_order_actions_keyboard(order_id, current_status):
-    buttons = [[InlineKeyboardButton(text="🔄 Statusni o'zgartirish", callback_data=f"status_menu_{order_id}")]]
-
-    # Status mapping:
-    # DRIVER_ASSIGNED -> ON_THE_WAY_TO_PICKUP
-    # ON_THE_WAY_TO_PICKUP -> AT_PICKUP_LOCATION
-    # AT_PICKUP_LOCATION -> LOADED (Proof)
-    # LOADED -> ON_THE_WAY_WITH_CARGO
-    # ON_THE_WAY_WITH_CARGO -> AT_DROPOFF_LOCATION
-    # AT_DROPOFF_LOCATION -> UNLOADING_CONFIRMED (Proof)
-
-    if current_status == OrderStatus.DRIVER_ASSIGNED:
-        buttons.append([InlineKeyboardButton(text="🚚 Yo'lga chiqdim (Yuk olishga)", callback_data=f"status_{order_id}_on_way_to_pickup")])
-    elif current_status == OrderStatus.ON_THE_WAY_TO_PICKUP:
-        buttons.append([InlineKeyboardButton(text="📍 Yetib keldim (Yuk olishga)", callback_data=f"status_{order_id}_at_pickup_location")])
-    elif current_status == OrderStatus.AT_PICKUP_LOCATION:
-        buttons.append([InlineKeyboardButton(text="📦 Yuklandi (Proof)", callback_data=f"proof_request_{order_id}_loaded")])
-    elif current_status == OrderStatus.LOADED:
-        buttons.append([InlineKeyboardButton(text="🚚 Yo'lga chiqdim (Yuk bilan)", callback_data=f"status_{order_id}_on_the_way_with_cargo")])
-    elif current_status == OrderStatus.ON_THE_WAY_WITH_CARGO:
-        buttons.append([InlineKeyboardButton(text="📍 Yetib keldim (Tushirishga)", callback_data=f"status_{order_id}_at_dropoff_location")])
-    elif current_status == OrderStatus.AT_DROPOFF_LOCATION:
-        buttons.append([InlineKeyboardButton(text="📦 Tushirishni boshladim (Proof)", callback_data=f"proof_request_{order_id}_unloading_requested")])
-    elif current_status == OrderStatus.UNLOADING_REQUESTED:
-        buttons.append([InlineKeyboardButton(text="✅ Tushirish tugadi (Proof)", callback_data=f"proof_request_{order_id}_unloading_confirmed")])
-    # For UNLOADING_CONFIRMED -> COMPLETED, dispatcher closes.
-
-    buttons.append([InlineKeyboardButton(text="📍 Lokatsiya yuborish", callback_data=f"send_loc_{order_id}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Orqaga", callback_data="driver_orders")])
+    buttons = [
+        [InlineKeyboardButton(text="🔄 Statusni o'zgartirish", callback_data=f"status_menu_{order_id}")],
+        [InlineKeyboardButton(text="📍 Lokatsiya yuborish", callback_data=f"send_loc_{order_id}")],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="driver_orders")],
+    ]
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -94,6 +71,10 @@ def get_driver_status_change_keyboard(order_id, current_status):
         OrderStatus.ON_THE_WAY_WITH_CARGO: ["at_dropoff_location"],
         OrderStatus.AT_DROPOFF_LOCATION: ["unloading_requested"],
         OrderStatus.UNLOADING_REQUESTED: ["unloading_confirmed"],
+        # Allow drivers to start the chain even if status is still in early dispatcher stages
+        OrderStatus.CLIENT_CONFIRMED: ["on_way_to_pickup"],
+        OrderStatus.DRIVER_SEARCH: ["on_way_to_pickup"],
+        OrderStatus.NEW: ["on_way_to_pickup"],
     }
 
     # Normalize the status so lookups work even if a raw string is passed in
@@ -103,7 +84,12 @@ def get_driver_status_change_keyboard(order_id, current_status):
         status_key = current_status
 
     buttons = []
-    for code in allowed_by_status.get(status_key, []):
+    next_codes = allowed_by_status.get(status_key, [])
+    # Fallback: if nothing matched, still offer the first leg to keep UX unblocked
+    if not next_codes:
+        next_codes = allowed_by_status.get(OrderStatus.DRIVER_ASSIGNED, [])
+
+    for code in next_codes:
         _, label, requires_video = status_options[code]
         buttons.append([InlineKeyboardButton(text=label, callback_data=f"status_pick_{order_id}_{code}")])
 
