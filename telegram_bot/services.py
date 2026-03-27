@@ -23,6 +23,18 @@ class BotService:
             print(f"Failed to send message to {telegram_id}: {e}")
 
     @staticmethod
+    async def send_location(telegram_id, lat, lng, caption: str | None = None):
+        token = os.getenv("BOT_TOKEN")
+        if not token or not telegram_id or lat is None or lng is None:
+            return
+        try:
+            bot = Bot(token=token)
+            await bot.send_location(chat_id=telegram_id, latitude=float(lat), longitude=float(lng), caption=caption)
+            await bot.session.close()
+        except Exception as e:
+            print(f"Failed to send location to {telegram_id}: {e}")
+
+    @staticmethod
     async def get_driver_by_telegram_id(telegram_id):
         try:
             return await Driver.objects.aget(telegram_id=telegram_id)
@@ -122,6 +134,15 @@ class BotService:
             return None
 
     @staticmethod
+    @sync_to_async
+    def get_active_orders_for_driver(driver):
+        return list(Order.objects.filter(
+            assigned_driver=driver
+        ).exclude(
+            current_status__in=[OrderStatus.COMPLETED, OrderStatus.CANCELLED]
+        ).select_related('client'))
+
+    @staticmethod
     async def update_driver_location(driver_id, lat, lon):
         try:
             driver = await Driver.objects.aget(id=driver_id)
@@ -129,6 +150,14 @@ class BotService:
             driver.current_lng = lon
             driver.last_location_update = timezone.now()
             await driver.asave(update_fields=["current_lat", "current_lng", "last_location_update"])
+
+            # Notify linked clients anonymously with latest location
+            active_orders = await BotService.get_active_orders_for_driver(driver)
+            for order in active_orders:
+                client = order.client
+                if client and client.telegram_id:
+                    caption = f"Buyurtma #{order.public_id[-6:]} uchun oxirgi lokatsiya"
+                    await BotService.send_location(client.telegram_id, lat, lon, caption=caption)
         except Driver.DoesNotExist:
             pass
 

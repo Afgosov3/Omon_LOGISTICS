@@ -76,6 +76,7 @@ def get_driver_order_actions_keyboard(order_id, current_status):
 def get_customer_order_actions_keyboard(order_id):
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="📍 Buyurtmam qayerda?", callback_data=f"track_order_{order_id}")],
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="customer_orders")]
         ]
     )

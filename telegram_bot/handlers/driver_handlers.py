@@ -185,6 +185,15 @@ async def ask_location(call: CallbackQuery):
     await call.message.answer("📍 Iltimos, lokatsiyanginni yuboring (📎 -> Location).", reply_markup=get_back_keyboard())
     await call.answer()
 
+@router.callback_query(F.data.startswith("send_loc_"))
+async def send_location_prompt(call: CallbackQuery):
+    order_id = call.data.split("_")[-1]
+    await call.message.answer(
+        f"📍 Buyurtma #{order_id} uchun lokatsiyani yuboring (📎 -> Location).",
+        reply_markup=get_back_keyboard()
+    )
+    await call.answer()
+
 @router.message(F.location)
 async def process_location(message: Message):
     driver = await BotService.get_driver_by_telegram_id(message.from_user.id)
