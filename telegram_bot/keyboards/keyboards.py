@@ -61,6 +61,7 @@ def get_driver_status_change_keyboard(order_id, current_status):
         "at_dropoff_location": (OrderStatus.AT_DROPOFF_LOCATION, "📍 Yetib keldim (tushirishga)", False),
         "unloading_requested": (OrderStatus.UNLOADING_REQUESTED, "📦 Tushirishni boshladim (video)", True),
         "unloading_confirmed": (OrderStatus.UNLOADING_CONFIRMED, "✅ Tushirish tugadi (video)", True),
+        "completed": (OrderStatus.COMPLETED, "✅ Buyurtma yakunlandi", False),
     }
 
     allowed_by_status = {
@@ -71,6 +72,7 @@ def get_driver_status_change_keyboard(order_id, current_status):
         OrderStatus.ON_THE_WAY_WITH_CARGO: ["at_dropoff_location"],
         OrderStatus.AT_DROPOFF_LOCATION: ["unloading_requested"],
         OrderStatus.UNLOADING_REQUESTED: ["unloading_confirmed"],
+        OrderStatus.UNLOADING_CONFIRMED: ["completed"],
         # Allow drivers to start the chain even if status is still in early dispatcher stages
         OrderStatus.CLIENT_CONFIRMED: ["on_way_to_pickup"],
         OrderStatus.DRIVER_SEARCH: ["on_way_to_pickup"],

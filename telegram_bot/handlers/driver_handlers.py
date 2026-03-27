@@ -35,6 +35,7 @@ STATUS_OPTION_MAP = {
     "at_dropoff_location": (OrderStatus.AT_DROPOFF_LOCATION, False),
     "unloading_requested": (OrderStatus.UNLOADING_REQUESTED, True),
     "unloading_confirmed": (OrderStatus.UNLOADING_CONFIRMED, True),
+    "completed": (OrderStatus.COMPLETED, False),
 }
 
 ALLOWED_STATUS_BY_CURRENT = {
@@ -45,6 +46,7 @@ ALLOWED_STATUS_BY_CURRENT = {
     OrderStatus.ON_THE_WAY_WITH_CARGO: ["at_dropoff_location"],
     OrderStatus.AT_DROPOFF_LOCATION: ["unloading_requested"],
     OrderStatus.UNLOADING_REQUESTED: ["unloading_confirmed"],
+    OrderStatus.UNLOADING_CONFIRMED: ["completed"],
     # allow driver to start even if order is still early-stage
     OrderStatus.NEW: ["on_way_to_pickup"],
     OrderStatus.DRIVER_SEARCH: ["on_way_to_pickup"],

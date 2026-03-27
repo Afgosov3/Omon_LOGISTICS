@@ -200,9 +200,9 @@ class OrderProof(TimeStampedBaseModel):
 
 
 ALLOWED_TRANSITIONS = {
-    "new": ["client_confirmed"],
-    "client_confirmed": ["driver_search"],
-    "driver_search": ["driver_assigned"],
+    "new": ["client_confirmed", "on_the_way_to_pickup"],
+    "client_confirmed": ["driver_search", "on_the_way_to_pickup"],
+    "driver_search": ["driver_assigned", "on_the_way_to_pickup"],
     "driver_assigned": ["on_the_way_to_pickup"],
     "on_the_way_to_pickup": ["at_pickup_location"],
     "at_pickup_location": ["loaded"],
