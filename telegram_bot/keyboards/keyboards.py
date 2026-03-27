@@ -96,8 +96,14 @@ def get_driver_status_change_keyboard(order_id, current_status):
         OrderStatus.UNLOADING_REQUESTED: ["unloading_confirmed"],
     }
 
+    # Normalize the status so lookups work even if a raw string is passed in
+    try:
+        status_key = OrderStatus(current_status)
+    except Exception:
+        status_key = current_status
+
     buttons = []
-    for code in allowed_by_status.get(current_status, []):
+    for code in allowed_by_status.get(status_key, []):
         _, label, requires_video = status_options[code]
         buttons.append([InlineKeyboardButton(text=label, callback_data=f"status_pick_{order_id}_{code}")])
 
