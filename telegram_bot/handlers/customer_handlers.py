@@ -27,9 +27,10 @@ async def show_customer_orders(call: CallbackQuery):
 
     orders = await BotService.get_customer_orders(client)
     if not orders:
-        await safe_edit_text(call.message, "Sizda faol buyurtmalar yo'q.", reply_markup=get_customer_main_keyboard())
+        text = "❌ Sizda hozirgi vaqtda aktiv buyurtmalar yo'q.\n\nYangi buyurtma yaratish uchun CRM tizimidan foydalaning."
+        await safe_edit_text(call.message, text, reply_markup=get_customer_main_keyboard())
     else:
-        await safe_edit_text(call.message, "Buyurtmangizni tanlang:", reply_markup=get_order_list_keyboard(orders, "customer"))
+        await safe_edit_text(call.message, "📦 Buyurtmangizni tanlang:", reply_markup=get_order_list_keyboard(orders, "customer"))
 
 @router.callback_query(F.data.startswith("order_detail_customer_"))
 async def show_order_detail_customer(call: CallbackQuery):
@@ -81,22 +82,29 @@ async def track_order(call: CallbackQuery):
 
     driver = order.assigned_driver
     if not driver:
-        await call.answer("Haydovchi biriktirilmagan", show_alert=True)
+        await call.answer("Haydovchi hali biriktirilmagan", show_alert=True)
         return
 
-    # Always request location from driver when customer asks
+    # Send location request to driver only
     if driver.telegram_id:
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📍 Lokatsiyani yuborish", callback_data=f"send_loc_{order.id}")]
+            [InlineKeyboardButton(text="✅ Lokatsiyani yuborish", callback_data=f"send_loc_{order.id}")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data=f"order_detail_customer_{order.id}")],
         ])
-        await BotService.send_message(
-            driver.telegram_id,
-            f"🔔 Mijoz buyurtma #{order.public_id[-6:]} uchun lokatsiyani so'radi.\n"
-            f"Iltimos, hozirgi lokatsiyanginni yuboring.",
-            reply_markup=kb,
-        )
-        # Notify customer that location request was sent
-        await call.message.answer("📍 Haydovchidan lokatsiya so'ralindi. Lokatsiya kilib qaytishini kuting...")
+        try:
+            await BotService.send_message(
+                driver.telegram_id,
+                f"🔔 **Mijoz buyurtma lokatsiyasini soramoqda**\n\n"
+                f"📦 Buyurtma: #{order.public_id[-6:]}\n"
+                f"Iltimos, hozirgi lokatsiyanginni yuboring.",
+                reply_markup=kb,
+            )
+            await call.message.answer(
+                "✅ Haydovchidan lokatsiya so'ralindi.\n\n"
+                "📍 Lokatsiya kilib qaytishini kuting..."
+            )
+        except Exception as e:
+            await call.message.answer(f"❌ Xatolik: {str(e)}")
         await call.answer()
     else:
         await call.answer("Haydovchi Telegram bilan bog'lanmagan.", show_alert=True)

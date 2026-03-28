@@ -162,35 +162,25 @@ async def pick_status(call: CallbackQuery, state: FSMContext):
 
     updated_order = await BotService.update_order_status(order_id, target_status, driver=driver)
     if updated_order:
-        await call.answer("Status yangilandi")
+        await call.answer("✅ Status yangilandi!")
 
-        # Show order detail directly instead of calling show_order_detail(call)
-        pickup = await BotService.get_pickup_point(order)
-        dropoff = await BotService.get_dropoff_point(order)
+        # Refresh order from DB
+        refreshed_order = await BotService.get_order_for_driver(order_id, driver)
+        pickup = await BotService.get_pickup_point(refreshed_order)
+        dropoff = await BotService.get_dropoff_point(refreshed_order)
         pickup_addr = pickup.address if pickup else "Noma'lum"
         dropoff_addr = dropoff.address if dropoff else "Noma'lum"
 
-        text = f"📦 Buyurtma #{order.public_id[-6:]}\n\n" \
+        text = f"📦 Buyurtma #{refreshed_order.public_id[-6:]}\n\n" \
                f"📍 Olish: {pickup_addr}\n" \
                f"🏁 Tushirish: {dropoff_addr}\n" \
-               f"💰 Narx: {order.driver_price:,.0f} so'm\n" \
-               f"📅 Vaqt: {order.created_at.strftime('%Y-%m-%d %H:%M')}\n" \
-               f"🔄 Status: {order.get_current_status_display()}\n"
+               f"💰 Narx: {refreshed_order.driver_price:,.0f} so'm\n" \
+               f"📅 Vaqt: {refreshed_order.created_at.strftime('%Y-%m-%d %H:%M')}\n" \
+               f"🔄 Status: {refreshed_order.get_current_status_display()}\n"
 
-        await safe_edit_text(call.message, text, reply_markup=get_driver_order_actions_keyboard(order.id, order.current_status))
-
-        if target_status in LOCATION_PROMPT_STATUSES:
-            await call.message.answer(
-                "📍 Lokatsiyani yuboring, mijoz ko'rsin:",
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [InlineKeyboardButton(text="📍 Lokatsiya yuborish", callback_data=f"send_loc_{order_id}")],
-                        [InlineKeyboardButton(text="🔙 Orqaga", callback_data=f"order_detail_driver_{order_id}")],
-                    ]
-                ),
-            )
+        await safe_edit_text(call.message, text, reply_markup=get_driver_order_actions_keyboard(refreshed_order.id, refreshed_order.current_status))
     else:
-        await call.answer("Statusni yangilab bo'lmadi", show_alert=True)
+        await call.answer("❌ Statusni yangilab bo'lmadi", show_alert=True)
 
 @router.callback_query(F.data.startswith("proof_request_"))
 async def request_proof(call: CallbackQuery, state: FSMContext):
@@ -265,11 +255,6 @@ async def process_proof(message: Message, state: FSMContext):
 
     await state.clear()
 
-@router.callback_query(F.data == "driver_location")
-async def ask_location(call: CallbackQuery):
-    await call.message.answer("📍 Iltimos, lokatsiyanginni yuboring (📎 -> Location).", reply_markup=get_back_keyboard())
-    await call.answer()
-
 @router.callback_query(F.data.startswith("send_loc_"))
 async def send_location_prompt(call: CallbackQuery, state: FSMContext):
     try:
@@ -278,8 +263,12 @@ async def send_location_prompt(call: CallbackQuery, state: FSMContext):
         await call.answer("Xato ma'lumot", show_alert=True)
         return
     await state.update_data(location_order_id=order_id)
+
+    # Send friendly message to driver requesting location
     await call.message.answer(
-        f"📍 Buyurtma #{order_id} uchun hozirgi lokatsiyanginni yuboring (📎 -> Location).",
+        f"📍 **Lokatsiyani yuboring**\n\n"
+        f"Buyurtma #{order_id} uchun hozirgi lokatsiyanginni yuboring.\n"
+        f"(📎 tugmasini bosing → Location)",
         reply_markup=get_back_keyboard()
     )
     await call.answer()
@@ -295,15 +284,43 @@ async def process_location(message: Message, state: FSMContext):
         if order_id:
             try:
                 order_id = int(order_id)
+                # Update driver location in DB
                 await BotService.update_driver_location(
                     driver.id,
                     message.location.latitude,
                     message.location.longitude,
                     order_id=order_id
                 )
-                await message.answer("✅ Lokatsiya yuborildi! Mijoz uni ko'radi.", reply_markup=get_driver_main_keyboard())
-            except (ValueError, TypeError):
-                await message.answer("❌ Xatolik yuz berdi, qayta urinib ko'ring.", reply_markup=get_driver_main_keyboard())
+
+                # Send confirmation to driver
+                await message.answer(
+                    "✅ **Lokatsiya yuborildi!**\n\n"
+                    "Mijoz hozirgi lokatsiyanginni ko'rishi mumkin.",
+                    reply_markup=get_driver_main_keyboard()
+                )
+
+                # Notify customer that location has been shared
+                order = await BotService.get_order_by_id(order_id)
+                if order and order.client.telegram_id:
+                    loc_text = f"📍 **Haydovchining lokatsiyasi**\n\n" \
+                               f"Latitude: {message.location.latitude}\n" \
+                               f"Longitude: {message.location.longitude}\n\n" \
+                               f"📦 Buyurtma: #{order.public_id[-6:]}"
+                    try:
+                        await BotService.send_message(
+                            order.client.telegram_id,
+                            loc_text
+                        )
+                    except:
+                        pass
+
+                await state.clear()
+            except (ValueError, TypeError) as e:
+                await message.answer(
+                    f"❌ Xatolik yuz berdi: {str(e)}\n\nQayta urinib ko'ring.",
+                    reply_markup=get_driver_main_keyboard()
+                )
+                await state.clear()
         else:
             # No specific order, just update location
             await BotService.update_driver_location(
@@ -311,11 +328,14 @@ async def process_location(message: Message, state: FSMContext):
                 message.location.latitude,
                 message.location.longitude,
             )
-            await message.answer("✅ Lokatsiya yangilandi.", reply_markup=get_driver_main_keyboard())
-
-        await state.clear()
+            await message.answer(
+                "✅ Lokatsiya yangilandi.",
+                reply_markup=get_driver_main_keyboard()
+            )
+            await state.clear()
     else:
-        pass
+        await message.answer("❌ Haydovchi topilmadi!")
+        await state.clear()
 
 @router.callback_query(F.data == "back_home")
 async def back_home(call: CallbackQuery, state: FSMContext):

@@ -14,7 +14,6 @@ def get_driver_main_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📦 Mening buyurtmalarim", callback_data="driver_orders")],
-            [InlineKeyboardButton(text="📍 Lokatsiya yuborish", callback_data="driver_location")],
         ]
     )
 
@@ -45,7 +44,6 @@ def get_order_list_keyboard(orders, role="driver"):
 def get_driver_order_actions_keyboard(order_id, current_status):
     buttons = [
         [InlineKeyboardButton(text="🔄 Statusni o'zgartirish", callback_data=f"status_menu_{order_id}")],
-        [InlineKeyboardButton(text="📍 Lokatsiya yuborish", callback_data=f"send_loc_{order_id}")],
         [InlineKeyboardButton(text="🔙 Orqaga", callback_data="driver_orders")],
     ]
 
