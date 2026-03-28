@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 from telegram_bot.services import BotService
@@ -10,6 +10,7 @@ from telegram_bot.keyboards.keyboards import (
     get_back_keyboard,
     get_customer_main_keyboard,
     get_driver_status_change_keyboard,
+    get_location_request_keyboard,
 )
 from telegram_bot.states.states import DriverOrderState
 from orders.models import OrderStatus, ProofKind
@@ -264,12 +265,9 @@ async def send_location_prompt(call: CallbackQuery, state: FSMContext):
         return
     await state.update_data(location_order_id=order_id)
 
-    # Send friendly message to driver requesting location
     await call.message.answer(
-        f"📍 **Lokatsiyani yuboring**\n\n"
-        f"Buyurtma #{order_id} uchun hozirgi lokatsiyanginni yuboring.\n"
-        f"(📎 tugmasini bosing → Location)",
-        reply_markup=get_back_keyboard()
+        "📍 Lokatsiyani yuborish uchun pastdagi tugmani bosing.",
+        reply_markup=get_location_request_keyboard(),
     )
     await call.answer()
 
@@ -292,14 +290,22 @@ async def process_location(message: Message, state: FSMContext):
 
                 await message.answer(
                     "✅ Lokatsiya yuborildi. Mijozga yuborildi.",
-                    reply_markup=get_driver_main_keyboard()
+                    reply_markup=ReplyKeyboardRemove(),
+                )
+                await message.answer(
+                    "Bosh menyu:",
+                    reply_markup=get_driver_main_keyboard(),
                 )
 
                 await state.clear()
             except (ValueError, TypeError) as e:
                 await message.answer(
                     f"❌ Xatolik yuz berdi: {str(e)}\n\nQayta urinib ko'ring.",
-                    reply_markup=get_driver_main_keyboard()
+                    reply_markup=ReplyKeyboardRemove(),
+                )
+                await message.answer(
+                    "Bosh menyu:",
+                    reply_markup=get_driver_main_keyboard(),
                 )
                 await state.clear()
         else:
@@ -310,11 +316,15 @@ async def process_location(message: Message, state: FSMContext):
             )
             await message.answer(
                 "✅ Lokatsiya yangilandi.",
-                reply_markup=get_driver_main_keyboard()
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            await message.answer(
+                "Bosh menyu:",
+                reply_markup=get_driver_main_keyboard(),
             )
             await state.clear()
     else:
-        await message.answer("❌ Haydovchi topilmadi!")
+        await message.answer("❌ Haydovchi topilmadi!", reply_markup=ReplyKeyboardRemove())
         await state.clear()
 
 @router.callback_query(F.data == "back_home")

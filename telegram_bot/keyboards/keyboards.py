@@ -111,3 +111,10 @@ def get_back_keyboard():
             [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_home")]
         ]
     )
+
+def get_location_request_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="📍 Lokatsiyani yuborish", request_location=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
