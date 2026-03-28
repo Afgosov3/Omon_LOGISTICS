@@ -27,12 +27,15 @@ class BotService:
         token = os.getenv("BOT_TOKEN")
         if not token or not telegram_id or lat is None or lng is None:
             return
+        bot = Bot(token=token)
         try:
-            bot = Bot(token=token)
-            await bot.send_location(chat_id=telegram_id, latitude=float(lat), longitude=float(lng), caption=caption)
-            await bot.session.close()
+            await bot.send_location(chat_id=telegram_id, latitude=float(lat), longitude=float(lng))
+            if caption:
+                await bot.send_message(chat_id=telegram_id, text=caption)
         except Exception as e:
             print(f"Failed to send location to {telegram_id}: {e}")
+        finally:
+            await bot.session.close()
 
     @staticmethod
     async def get_driver_by_telegram_id(telegram_id):
