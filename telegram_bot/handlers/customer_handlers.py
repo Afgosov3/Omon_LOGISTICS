@@ -95,7 +95,9 @@ async def track_order(call: CallbackQuery):
             f"Iltimos, hozirgi lokatsiyanginni yuboring.",
             reply_markup=kb,
         )
-        await call.answer("Haydovchidan lokatsiya so'raldi. Biroz kuting...", show_alert=True)
+        # Notify customer that location request was sent
+        await call.message.answer("📍 Haydovchidan lokatsiya so'ralindi. Lokatsiya kilib qaytishini kuting...")
+        await call.answer()
     else:
         await call.answer("Haydovchi Telegram bilan bog'lanmagan.", show_alert=True)
     await call.answer()
