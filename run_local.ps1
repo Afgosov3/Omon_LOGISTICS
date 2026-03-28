@@ -69,12 +69,11 @@ Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "Starting Django Development Server" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "API Documentation: http://localhost:8000/api/docs/" -ForegroundColor Green
-Write-Host "Admin Panel: http://localhost:8000/admin/" -ForegroundColor Green
-Write-Host "API Root: http://localhost:8000/api/" -ForegroundColor Green
+Write-Host "API Documentation: http://localhost:8888/api/docs/" -ForegroundColor Green
+Write-Host "Admin Panel: http://localhost:8888/admin/" -ForegroundColor Green
+Write-Host "API Root: http://localhost:8888/api/" -ForegroundColor Green
 Write-Host ""
 Write-Host "Press Ctrl+C to stop the server" -ForegroundColor Yellow
 Write-Host ""
 
-python manage.py runserver 0.0.0.0:8000
-
+python manage.py runserver 0.0.0.0:8888

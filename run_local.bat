@@ -58,12 +58,11 @@ echo.
 echo ============================================
 echo Starting Django Development Server
 echo ============================================
-echo API Documentation: http://localhost:8000/api/docs/
-echo Admin Panel: http://localhost:8000/admin/
-echo API Root: http://localhost:8000/api/
+echo API Documentation: http://localhost:8888/api/docs/
+echo Admin Panel: http://localhost:8888/admin/
+echo API Root: http://localhost:8888/api/
 echo ============================================
 echo.
 
 REM Server ishga tushalish
-python manage.py runserver 0.0.0.0:8000
-
+python manage.py runserver 0.0.0.0:8888

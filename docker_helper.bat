@@ -27,7 +27,7 @@ if "%1"=="up" (
     docker compose up -d
     echo.
     echo Services started!
-    echo Access API at: http://localhost:8080/api/docs/
+    echo Access API at: http://localhost:8888/api/docs/
     exit /b 0
 )
 
@@ -45,7 +45,7 @@ if "%1"=="rebuild" (
     docker compose up -d
     echo.
     echo Services rebuilt and started!
-    echo Access API at: http://localhost:8080/api/docs/
+    echo Access API at: http://localhost:8888/api/docs/
     exit /b 0
 )
 
