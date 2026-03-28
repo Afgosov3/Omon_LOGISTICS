@@ -156,11 +156,12 @@ class BotService:
                 try:
                     order = await BotService.get_order_by_id(order_id)
                     if order and order.client and order.client.telegram_id:
+                        caption = f"📍 Buyurtma lokatsiyasi\n\n📦 #{order.public_id[-6:]}"
                         await BotService.send_location(
                             order.client.telegram_id,
                             lat,
                             lon,
-                            caption="📍 Buyurtma lokatsiyasi"
+                            caption=caption
                         )
                 except Exception as e:
                     print(f"Error sending location to client: {e}")

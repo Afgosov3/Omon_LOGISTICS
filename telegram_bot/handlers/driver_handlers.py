@@ -277,14 +277,12 @@ async def send_location_prompt(call: CallbackQuery, state: FSMContext):
 async def process_location(message: Message, state: FSMContext):
     driver = await BotService.get_driver_by_telegram_id(message.from_user.id)
     if driver:
-        # Get order_id from state if available (from send_loc callback)
         data = await state.get_data()
         order_id = data.get("location_order_id")
 
         if order_id:
             try:
                 order_id = int(order_id)
-                # Update driver location in DB
                 await BotService.update_driver_location(
                     driver.id,
                     message.location.latitude,
@@ -292,27 +290,10 @@ async def process_location(message: Message, state: FSMContext):
                     order_id=order_id
                 )
 
-                # Send confirmation to driver
                 await message.answer(
-                    "✅ **Lokatsiya yuborildi!**\n\n"
-                    "Mijoz hozirgi lokatsiyanginni ko'rishi mumkin.",
+                    "✅ Lokatsiya yuborildi. Mijozga yuborildi.",
                     reply_markup=get_driver_main_keyboard()
                 )
-
-                # Notify customer that location has been shared
-                order = await BotService.get_order_by_id(order_id)
-                if order and order.client.telegram_id:
-                    loc_text = f"📍 **Haydovchining lokatsiyasi**\n\n" \
-                               f"Latitude: {message.location.latitude}\n" \
-                               f"Longitude: {message.location.longitude}\n\n" \
-                               f"📦 Buyurtma: #{order.public_id[-6:]}"
-                    try:
-                        await BotService.send_message(
-                            order.client.telegram_id,
-                            loc_text
-                        )
-                    except:
-                        pass
 
                 await state.clear()
             except (ValueError, TypeError) as e:
@@ -322,7 +303,6 @@ async def process_location(message: Message, state: FSMContext):
                 )
                 await state.clear()
         else:
-            # No specific order, just update location
             await BotService.update_driver_location(
                 driver.id,
                 message.location.latitude,
