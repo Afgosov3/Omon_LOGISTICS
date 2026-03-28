@@ -156,23 +156,12 @@ class BotService:
                 try:
                     order = await BotService.get_order_by_id(order_id)
                     if order and order.client and order.client.telegram_id:
-                        # Send location
                         await BotService.send_location(
                             order.client.telegram_id,
                             lat,
                             lon,
-                            caption=f"📍 Buyurtma #{order.public_id[-6:]} uchun hozirgi lokatsiya"
+                            caption="📍 Buyurtma lokatsiyasi"
                         )
-                        # Send formatted text with coordinates
-                        formatted_text = (
-                            f"📍 Haydovchi lokatsiya yubordi\n\n"
-                            f"📦 Buyurtma: #{order.public_id[-6:]}\n"
-                            f"🗺️ Koordinatalar:\n"
-                            f"   Kenglik: {lat:.6f}\n"
-                            f"   Uzunlik: {lon:.6f}\n"
-                            f"⏰ Vaqt: {driver.last_location_update.strftime('%H:%M:%S')}\n"
-                        )
-                        await BotService.send_message(order.client.telegram_id, formatted_text)
                 except Exception as e:
                     print(f"Error sending location to client: {e}")
         except Driver.DoesNotExist:
