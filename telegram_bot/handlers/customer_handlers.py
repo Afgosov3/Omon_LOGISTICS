@@ -33,7 +33,11 @@ async def show_customer_orders(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("order_detail_customer_"))
 async def show_order_detail_customer(call: CallbackQuery):
-    order_id = int(call.data.split("_")[-1])
+    try:
+        order_id = int(call.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await call.answer("Xato ma'lumot, qayta urinib ko'ring", show_alert=True)
+        return
     client = await BotService.get_customer_by_telegram_id(call.from_user.id)
 
     if not client:
@@ -63,7 +67,11 @@ async def show_order_detail_customer(call: CallbackQuery):
 
 @router.callback_query(F.data.startswith("track_order_"))
 async def track_order(call: CallbackQuery):
-    order_id = int(call.data.split("_")[-1])
+    try:
+        order_id = int(call.data.split("_")[-1])
+    except (ValueError, IndexError):
+        await call.answer("Xato ma'lumot", show_alert=True)
+        return
     client = await BotService.get_customer_by_telegram_id(call.from_user.id)
     order = await BotService.get_order_for_customer(order_id, client) if client else None
 
@@ -76,26 +84,18 @@ async def track_order(call: CallbackQuery):
         await call.answer("Haydovchi biriktirilmagan", show_alert=True)
         return
 
-    lat = driver.current_lat
-    lng = driver.current_lng
-    updated_at = driver.last_location_update
-
-    if lat is None or lng is None:
-        if driver.telegram_id:
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📍 Lokatsiyani yuborish", callback_data=f"send_loc_{order.id}")]
-            ])
-            await BotService.send_message(
-                driver.telegram_id,
-                "Mijoz lokatsiya so'radi. Iltimos, lokatsiyani yuboring.",
-                reply_markup=kb,
-            )
-            await call.answer("Haydovchidan lokatsiya so'raldi.", show_alert=True)
-        else:
-            await call.answer("Haydovchi Telegram bilan bog'lanmagan.", show_alert=True)
-        return
-
-    await call.message.answer_location(latitude=float(lat), longitude=float(lng))
-    if updated_at:
-        await call.message.answer(f"Oxirgi yangilanish: {updated_at.strftime('%Y-%m-%d %H:%M')}")
+    # Always request location from driver when customer asks
+    if driver.telegram_id:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📍 Lokatsiyani yuborish", callback_data=f"send_loc_{order.id}")]
+        ])
+        await BotService.send_message(
+            driver.telegram_id,
+            f"🔔 Mijoz buyurtma #{order.public_id[-6:]} uchun lokatsiyani so'radi.\n"
+            f"Iltimos, hozirgi lokatsiyanginni yuboring.",
+            reply_markup=kb,
+        )
+        await call.answer("Haydovchidan lokatsiya so'raldi. Biroz kuting...", show_alert=True)
+    else:
+        await call.answer("Haydovchi Telegram bilan bog'lanmagan.", show_alert=True)
     await call.answer()

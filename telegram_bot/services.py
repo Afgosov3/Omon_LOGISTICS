@@ -143,7 +143,7 @@ class BotService:
         ).select_related('client'))
 
     @staticmethod
-    async def update_driver_location(driver_id, lat, lon):
+    async def update_driver_location(driver_id, lat, lon, order_id=None):
         try:
             driver = await Driver.objects.aget(id=driver_id)
             driver.current_lat = lat
@@ -151,13 +151,30 @@ class BotService:
             driver.last_location_update = timezone.now()
             await driver.asave(update_fields=["current_lat", "current_lng", "last_location_update"])
 
-            # Notify linked clients anonymously with latest location
-            active_orders = await BotService.get_active_orders_for_driver(driver)
-            for order in active_orders:
-                client = order.client
-                if client and client.telegram_id:
-                    caption = f"Buyurtma #{order.public_id[-6:]} uchun oxirgi lokatsiya"
-                    await BotService.send_location(client.telegram_id, lat, lon, caption=caption)
+            # If order_id provided, send location only to that order's client
+            if order_id:
+                try:
+                    order = await BotService.get_order_by_id(order_id)
+                    if order and order.client and order.client.telegram_id:
+                        # Send location
+                        await BotService.send_location(
+                            order.client.telegram_id,
+                            lat,
+                            lon,
+                            caption=f"📍 Buyurtma #{order.public_id[-6:]} uchun hozirgi lokatsiya"
+                        )
+                        # Send formatted text with coordinates
+                        formatted_text = (
+                            f"📍 Haydovchi lokatsiya yubordi\n\n"
+                            f"📦 Buyurtma: #{order.public_id[-6:]}\n"
+                            f"🗺️ Koordinatalar:\n"
+                            f"   Kenglik: {lat:.6f}\n"
+                            f"   Uzunlik: {lon:.6f}\n"
+                            f"⏰ Vaqt: {driver.last_location_update.strftime('%H:%M:%S')}\n"
+                        )
+                        await BotService.send_message(order.client.telegram_id, formatted_text)
+                except Exception as e:
+                    print(f"Error sending location to client: {e}")
         except Driver.DoesNotExist:
             pass
 
