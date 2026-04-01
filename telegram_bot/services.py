@@ -202,6 +202,30 @@ class BotService:
         return client
 
     @staticmethod
+    @sync_to_async
+    def get_pickup_point(order: Order | None):
+        if not order:
+            return None
+        points = getattr(order, "points", None)
+        if points is not None:
+            for point in points.all():
+                if point.type == OrderPointType.PICKUP:
+                    return point
+        return OrderPoint.objects.filter(order=order, type=OrderPointType.PICKUP).order_by("sequence").first()
+
+    @staticmethod
+    @sync_to_async
+    def get_dropoff_point(order: Order | None):
+        if not order:
+            return None
+        points = getattr(order, "points", None)
+        if points is not None:
+            for point in points.all():
+                if point.type == OrderPointType.DROPOFF:
+                    return point
+        return OrderPoint.objects.filter(order=order, type=OrderPointType.DROPOFF).order_by("sequence").first()
+
+    @staticmethod
     def _split_name(full_name: str):
         parts = (full_name or "").strip().split(maxsplit=1)
         first = parts[0] if parts else ""
