@@ -172,11 +172,42 @@ class BotService:
             pass
 
     @staticmethod
-    @sync_to_async
-    def get_pickup_point(order):
-        return order.points.filter(point_type=OrderPointType.PICKUP).first()
+    async def update_driver_name(driver_id: int, first_name: str | None = None, last_name: str | None = None):
+        try:
+            driver = await Driver.objects.aget(id=driver_id)
+        except Driver.DoesNotExist:
+            return None
+
+        current_first, current_last = BotService._split_name(driver.full_name)
+        new_first = first_name or current_first
+        new_last = last_name if last_name is not None else current_last
+
+        driver.full_name = BotService._join_name(new_first, new_last)
+        await driver.asave(update_fields=["full_name"])
+        return driver
 
     @staticmethod
-    @sync_to_async
-    def get_dropoff_point(order):
-        return order.points.filter(point_type=OrderPointType.DROPOFF).last()
+    async def update_client_name(client_id: int, first_name: str | None = None, last_name: str | None = None):
+        try:
+            client = await Client.objects.aget(id=client_id)
+        except Client.DoesNotExist:
+            return None
+
+        current_first, current_last = BotService._split_name(client.full_name)
+        new_first = first_name or current_first
+        new_last = last_name if last_name is not None else current_last
+
+        client.full_name = BotService._join_name(new_first, new_last)
+        await client.asave(update_fields=["full_name"])
+        return client
+
+    @staticmethod
+    def _split_name(full_name: str):
+        parts = (full_name or "").strip().split(maxsplit=1)
+        first = parts[0] if parts else ""
+        last = parts[1] if len(parts) > 1 else ""
+        return first, last
+
+    @staticmethod
+    def _join_name(first: str, last: str):
+        return f"{first} {last}".strip()

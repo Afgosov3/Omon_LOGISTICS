@@ -14,6 +14,7 @@ def get_driver_main_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📦 Mening buyurtmalarim", callback_data="driver_orders")],
+            [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings_menu")],
         ]
     )
 
@@ -21,6 +22,7 @@ def get_customer_main_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📦 Mening buyurtmalarim", callback_data="customer_orders")],
+            [InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="settings_menu")],
         ]
     )
 
@@ -117,4 +119,13 @@ def get_location_request_keyboard():
         keyboard=[[KeyboardButton(text="📍 Lokatsiyani yuborish", request_location=True)]],
         resize_keyboard=True,
         one_time_keyboard=True,
+    )
+
+def get_settings_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📝 Ismni o'zgartirish", callback_data="edit_first_name")],
+            [InlineKeyboardButton(text="📝 Familiyani o'zgartirish", callback_data="edit_last_name")],
+            [InlineKeyboardButton(text="🔙 Orqaga", callback_data="back_home")],
+        ]
     )

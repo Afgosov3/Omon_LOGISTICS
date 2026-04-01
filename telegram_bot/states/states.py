@@ -10,3 +10,6 @@ class DriverOrderState(StatesGroup):
 class CustomerOrderState(StatesGroup):
     viewing_order = State()
 
+class SettingsState(StatesGroup):
+    edit_first_name = State()
+    edit_last_name = State()
