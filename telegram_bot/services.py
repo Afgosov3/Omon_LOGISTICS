@@ -209,9 +209,9 @@ class BotService:
         points = getattr(order, "points", None)
         if points is not None:
             for point in points.all():
-                if point.type == OrderPointType.PICKUP:
+                if point.point_type == OrderPointType.PICKUP:
                     return point
-        return OrderPoint.objects.filter(order=order, type=OrderPointType.PICKUP).order_by("sequence").first()
+        return OrderPoint.objects.filter(order=order, point_type=OrderPointType.PICKUP).order_by("sequence").first()
 
     @staticmethod
     @sync_to_async
@@ -221,9 +221,9 @@ class BotService:
         points = getattr(order, "points", None)
         if points is not None:
             for point in points.all():
-                if point.type == OrderPointType.DROPOFF:
+                if point.point_type == OrderPointType.DROPOFF:
                     return point
-        return OrderPoint.objects.filter(order=order, type=OrderPointType.DROPOFF).order_by("sequence").first()
+        return OrderPoint.objects.filter(order=order, point_type=OrderPointType.DROPOFF).order_by("sequence").first()
 
     @staticmethod
     def _split_name(full_name: str):
