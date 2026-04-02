@@ -30,7 +30,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-)3i4m_0m!br4u*%@0(a3gyoik5
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
-ALLOWED_HOSTS = parse_list(os.getenv('ALLOWED_HOSTS', '')) or ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ["*"]
 CSRF_TRUSTED_ORIGINS = parse_list(os.getenv('CSRF_TRUSTED_ORIGINS', ''))
 
 # Application definition
