@@ -31,7 +31,17 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-)3i4m_0m!br4u*%@0(a3gyoik5
 DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes')
 
 ALLOWED_HOSTS = ["*"]
-CSRF_TRUSTED_ORIGINS = parse_list(os.getenv('CSRF_TRUSTED_ORIGINS', ''))
+CSRF_TRUSTED_ORIGINS = [
+    'https://api.crm.omonlogistics.uz',
+    'http://localhost:8080',
+    'http://localhost:8888',
+    'http://127.0.0.1:8080',
+    'http://127.0.0.1:8888',
+]
+# Add environment variable overrides if provided
+env_csrf_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if env_csrf_origins:
+    CSRF_TRUSTED_ORIGINS.extend(parse_list(env_csrf_origins))
 
 # Application definition
 
@@ -148,8 +158,15 @@ STATIC_URL = '/static/'
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+# CSRF and Session cookie settings - more lenient in development
+if DEBUG:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_HTTPONLY = False
+else:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
 # STATICFILES_DIRS = [
 #     os.path.join(BASE_DIR, 'static')
 # ]
