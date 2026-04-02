@@ -22,7 +22,7 @@ async def safe_edit_text(message, text, reply_markup=None):
 async def show_customer_orders(call: CallbackQuery):
     client = await BotService.get_customer_by_telegram_id(call.from_user.id)
     if not client:
-        await call.answer("Mijoz topilmadi!", show_alert=True)
+        await call.answer("❌ Mijoz profili topilmadi!", show_alert=True)
         return
 
     orders = await BotService.get_customer_orders(client)
@@ -30,7 +30,7 @@ async def show_customer_orders(call: CallbackQuery):
         text = "❌ Sizda hozirgi vaqtda aktiv buyurtmalar yo'q.\n\nYangi buyurtma yaratish uchun CRM tizimidan foydalaning."
         await safe_edit_text(call.message, text, reply_markup=get_customer_main_keyboard())
     else:
-        await safe_edit_text(call.message, "📦 Buyurtmangizni tanlang:", reply_markup=get_order_list_keyboard(orders, "customer"))
+        await safe_edit_text(call.message, f"📦 **{len(orders)} ta buyurtma**\n\nTanlang:", reply_markup=get_order_list_keyboard(orders, "customer"))
 
 @router.callback_query(F.data.startswith("order_detail_customer_"))
 async def show_order_detail_customer(call: CallbackQuery):
@@ -56,7 +56,6 @@ async def show_order_detail_customer(call: CallbackQuery):
     pickup_addr = pickup.address if pickup else "Noma'lum"
     dropoff_addr = dropoff.address if dropoff else "Noma'lum"
 
-    price = order.client_price if order.client_price else 0
 
     text = f"📦 Buyurtma #{order.public_id[-6:]}\n\n" \
            f"📍 Olish: {pickup_addr}\n" \

@@ -27,17 +27,31 @@ async def cmd_start(message: Message, state: FSMContext):
     # Check if user exists
     driver = await BotService.get_driver_by_telegram_id(telegram_id)
     if driver:
-        await message.answer(f"Xush kelibsiz, haydovchi {driver.full_name}!", reply_markup=get_driver_main_keyboard())
+        kb = get_driver_main_keyboard()
+        await message.answer(
+            f"🚗 **Xush kelibsiz, haydovchi {driver.full_name}!**\n\n"
+            f"📊 Aktiv buyurtmalar va statuslarni kuzatib boring.",
+            reply_markup=kb
+        )
+        await state.clear()
         return
 
     customer = await BotService.get_customer_by_telegram_id(telegram_id)
     if customer:
-        client = customer # BotService returns Client
-        await message.answer(f"Xush kelibsiz, mijoz {client.full_name}!", reply_markup=get_customer_main_keyboard())
+        kb = get_customer_main_keyboard()
+        await message.answer(
+            f"👤 **Xush kelibsiz, {customer.full_name}!**\n\n"
+            f"📦 O'zingizning buyurtmalaringizni kuzatib boring.",
+            reply_markup=kb
+        )
+        await state.clear()
         return
 
+    # New user registration
     await message.answer(
-        "Assalomu alaykum! Tizimga kirish uchun telefon raqamingizni yuboring.",
+        "👋 **Assalomu alaykum!**\n\n"
+        "🚗 **OMON Logistics** - sifat va ishonchni talab qiladigan yuk tashish xizmati.\n\n"
+        "📱 Telefon raqamingizni yuboring, tizimga kirish uchun.",
         reply_markup=get_phone_keyboard()
     )
     await state.set_state(RegistrationState.waiting_for_phone)
@@ -50,16 +64,30 @@ async def process_phone(message: Message, state: FSMContext):
     role, user = await BotService.register_user(message.from_user.id, contact.phone_number, full_name)
 
     if role == "driver":
-        await message.answer(f"Tabriklaymiz! Siz haydovchi sifatida tizimga kirdingiz: {user.full_name}", reply_markup=get_driver_main_keyboard())
+        text = (
+            f"✅ **Haydovchi sifatida ro'yxatdan o'tdingiz!**\n\n"
+            f"🚗 **Ism:** {user.full_name}\n"
+            f"📞 **Telefon:** {contact.phone_number}\n\n"
+            f"Buyurtmalarni ko'rish uchun 📦 **Buyurtmalarim** tugmasini bosing."
+        )
+        await message.answer(text, reply_markup=get_driver_main_keyboard())
         await state.clear()
     elif role == "customer":
-        await message.answer(f"Tabriklaymiz! Siz mijoz sifatida tizimga kirdingiz: {user.full_name}", reply_markup=get_customer_main_keyboard())
+        text = (
+            f"✅ **Mijoz sifatida ro'yxatdan o'tdingiz!**\n\n"
+            f"👤 **Ism:** {user.full_name}\n"
+            f"📞 **Telefon:** {contact.phone_number}\n\n"
+            f"Buyurtmalarni ko'rish uchun 📦 **Buyurtmalarim** tugmasini bosing."
+        )
+        await message.answer(text, reply_markup=get_customer_main_keyboard())
         await state.clear()
     else:
-        await message.answer(
-            "Kechirasiz, siz tizimda topilmadingiz. Iltimos, dispetcher bilan bog'laning.",
-            reply_markup=ReplyKeyboardRemove()
+        text = (
+            "❌ **Ro'yxatdan o'tishda xatolik!**\n\n"
+            "Sizning telefon raqamingiz tizimda topilmadi.\n"
+            "Iltimos, dispetcher bilan bog'laning yoki qayta urinib ko'ring."
         )
+        await message.answer(text, reply_markup=ReplyKeyboardRemove())
         await state.clear()
 
 @router.callback_query(F.data == "settings_menu")

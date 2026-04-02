@@ -68,14 +68,14 @@ LOCATION_PROMPT_STATUSES = {
 async def show_driver_orders(call: CallbackQuery):
     driver = await BotService.get_driver_by_telegram_id(call.from_user.id)
     if not driver:
-        await call.answer("Haydovchi topilmadi!", show_alert=True)
+        await call.answer("❌ Haydovchi profili topilmadi!", show_alert=True)
         return
 
     orders = await BotService.get_driver_orders(driver)
     if not orders:
-        await safe_edit_text(call.message, "Sizda faol buyurtmalar yo'q.", reply_markup=get_driver_main_keyboard())
+        await safe_edit_text(call.message, "❌ Sizda hozirgi vaqtda aktiv buyurtmalar yo'q.\n\nYangi buyurtmalar paydo bo'lganda bu yerda ko'rinadi.", reply_markup=get_driver_main_keyboard())
     else:
-        await safe_edit_text(call.message, "Buyurtmangizni tanlang:", reply_markup=get_order_list_keyboard(orders, "driver"))
+        await safe_edit_text(call.message, f"📦 **{len(orders)} ta buyurtma**\n\nTanlang:", reply_markup=get_order_list_keyboard(orders, "driver"))
 
 @router.callback_query(F.data.startswith("order_detail_driver_"))
 async def show_order_detail(call: CallbackQuery):
@@ -100,6 +100,8 @@ async def show_order_detail(call: CallbackQuery):
     dropoff = await BotService.get_dropoff_point(order)
     pickup_addr = pickup.address if pickup else "Noma'lum"
     dropoff_addr = dropoff.address if dropoff else "Noma'lum"
+    pickup_lat = pickup.latitude if pickup else None
+    pickup_lng = pickup.longitude if pickup else None
 
     text = f"📦 Buyurtma #{order.public_id[-6:]}\n\n" \
            f"📍 Olish: {pickup_addr}\n" \
